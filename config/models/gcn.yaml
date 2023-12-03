@@ -26,6 +26,126 @@ params:
     fc_dropout: 0.0
     fc_nonlinear: 'relu'
     concate: False
+  MUTAG:
+    learning_rate: 0.001
+    weight_decay: 5e-4
+    milestones: None
+    gamma: None
+    batch_size: 32
+    num_epochs: 2000 # 2000
+    num_early_stop: 0
+    gnn_latent_dim:
+      - 128 # 128
+      - 128
+      - 128
+    gnn_dropout: 0.0
+    add_self_loop: True
+    gcn_adj_normalization: True
+    gnn_emb_normalization: False
+    graph_classification: False
+    node_classification: True
+    gnn_nonlinear: 'relu'
+    readout: 'max'
+    fc_latent_dim: [ ]
+    fc_dropout: 0.0
+    fc_nonlinear: 'relu'
+    concate: False
+  PPI:
+    learning_rate: 0.001
+    weight_decay: 5e-4
+    milestones: None
+    gamma: None
+    batch_size: 32
+    num_epochs: 2000 # 2000
+    num_early_stop: 0
+    gnn_latent_dim:
+      - 128 # 128
+      - 128
+      - 128
+    gnn_dropout: 0.0
+    add_self_loop: True
+    gcn_adj_normalization: True
+    gnn_emb_normalization: False
+    graph_classification: False
+    node_classification: True
+    gnn_nonlinear: 'relu'
+    readout: 'max'
+    fc_latent_dim: [ ]
+    fc_dropout: 0.0
+    fc_nonlinear: 'relu'
+    concate: False
+  CiteSeer:
+    learning_rate: 0.001
+    weight_decay: 5e-4
+    milestones: None
+    gamma: None
+    batch_size: 32
+    num_epochs: 2000 # 2000
+    num_early_stop: 0
+    gnn_latent_dim:
+      - 128 # 128
+      - 128
+      - 128
+    gnn_dropout: 0.0
+    add_self_loop: True
+    gcn_adj_normalization: True
+    gnn_emb_normalization: False
+    graph_classification: False
+    node_classification: True
+    gnn_nonlinear: 'relu'
+    readout: 'max'
+    fc_latent_dim: [ ]
+    fc_dropout: 0.0
+    fc_nonlinear: 'relu'
+    concate: False
+  BAHouse:
+    learning_rate: 0.001
+    weight_decay: 5e-4
+    milestones: None
+    gamma: None
+    batch_size: 32
+    num_epochs: 2000 # 2000
+    num_early_stop: 0
+    gnn_latent_dim:
+      - 128 # 128
+      - 128
+      - 128
+    gnn_dropout: 0.0
+    add_self_loop: True
+    gcn_adj_normalization: True
+    gnn_emb_normalization: False
+    graph_classification: False
+    node_classification: True
+    gnn_nonlinear: 'relu'
+    readout: 'max'
+    fc_latent_dim: [ ]
+    fc_dropout: 0.0
+    fc_nonlinear: 'relu'
+    concate: False
+  Reddit:
+    learning_rate: 0.001
+    weight_decay: 5e-4
+    milestones: None
+    gamma: None
+    batch_size: 32
+    num_epochs: 2000 # 2000
+    num_early_stop: 0
+    gnn_latent_dim:
+      - 128 # 128
+      - 128
+      - 128
+    gnn_dropout: 0.0
+    add_self_loop: True
+    gcn_adj_normalization: True
+    gnn_emb_normalization: False
+    graph_classification: False
+    node_classification: True
+    gnn_nonlinear: 'relu'
+    readout: 'max'
+    fc_latent_dim: [ ]
+    fc_dropout: 0.0
+    fc_nonlinear: 'relu'
+    concate: False
   ENZYMES:
     learning_rate: 0.001
     weight_decay: 5e-4
@@ -86,6 +206,30 @@ params:
       - 20 # 128
       - 20
       - 20
+    gnn_dropout: 0.0
+    add_self_loop: True
+    gcn_adj_normalization: True
+    gnn_emb_normalization: False
+    graph_classification: True
+    node_classification: False
+    gnn_nonlinear: 'relu'
+    readout: 'max'
+    fc_latent_dim: [ ]
+    fc_dropout: 0.0
+    fc_nonlinear: 'relu'
+    concate: False
+  syn:
+    learning_rate: 0.001
+    weight_decay: 5e-4
+    milestones: None
+    gamma: None
+    batch_size: 32
+    num_epochs: 2000 # 2000
+    num_early_stop: 0
+    gnn_latent_dim:
+      - 128 # 128
+      - 128
+      - 128
     gnn_dropout: 0.0
     add_self_loop: True
     gcn_adj_normalization: True

@@ -1,55 +1,31 @@
 import torch_geometric.transforms as T
 from torch import default_generator
 from torch.utils.data import random_split
-from torch_geometric.datasets import TUDataset
-from torch_geometric.loader import DataLoader
-from torch_geometric.datasets import BA2MotifDataset
-from dig.xgraph.dataset import MoleculeDataset
-
-
-
-def get_dataloader(dataset, batch_size, data_split_ratio, seed=3407):
-    """
-
-    Args:
-        dataset: which dataset you want
-        batch_size: int
-        data_split_ratio: list [train, valid, test]
-        seed: random seed to split the dataset randomly
-
-    Returns:
-        a dictionary of training, validation, and testing dataLoader
-    """
-
-    num_train = int(data_split_ratio[0] * len(dataset))
-    num_eval = int(data_split_ratio[1] * len(dataset))
-    num_test = len(dataset) - num_train - num_eval
-
-    train, eval, test = random_split(dataset,
-                                     lengths=[num_train, num_eval, num_test],
-                                     generator=default_generator.manual_seed(seed))
-
-    dataloader = dict()
-    dataloader['train'] = DataLoader(train, batch_size=batch_size, shuffle=True)
-    dataloader['eval'] = DataLoader(eval, batch_size=batch_size, shuffle=True)
-    dataloader['test'] = DataLoader(test, batch_size=batch_size, shuffle=True)
-
-    return dataloader
+from torch_geometric.datasets import Reddit, PPI, Planetoid
+import torch
+import os
 
 
 def get_dataset(dataset_root, dataset_name):
-    if dataset_name.lower() in ['mutag', 'mutagenicity', 'enzymes', 'imdb-multi',
-                                'proteins', 'nci1']:
-        return TUDataset(dataset_root, dataset_name)
-    elif dataset_name.lower() in ['reddit-multi-5k', 'reddit-binary']:
-        transform = T.Constant(value=1.0)
-        return TUDataset(dataset_root, dataset_name, transform=transform)
-    elif dataset_name.lower() in ['ba-2motifs']:
-        transform = T.Constant(value=1.0)
-        return BA2MotifDataset(root='../datasets/ba-2motifs', transform=transform)
-    elif dataset_name.lower() in ['bbbp']:
-        return MoleculeDataset(dataset_root, dataset_name)
-    elif dataset_name.lower() in ['proteins']:
-        return TUDataset(dataset_root, dataset_name)
+    if dataset_name.lower() in ['reddit']:
+        return Reddit(os.path.join(dataset_root, dataset_name))
+    elif dataset_name.lower() in ['bahouse']:
+        return torch.load(os.path.join(dataset_root, dataset_name, 'data.pt'))
+    elif dataset_name.lower() in ['ppi']:
+        return PPI(os.path.join(dataset_root, dataset_name))
+    elif dataset_name.lower() in ['citeseer']:
+        return Planetoid(dataset_root, dataset_name)
     else:
         raise ValueError(f"{dataset_name} is not defined.")
+
+def get_dim(dataset_name):
+    if dataset_name.lower() in ['reddit']:
+        return 602, 41
+    elif dataset_name.lower() in ['bahouse']:
+        return 0, 4
+    elif dataset_name.lower() in ['ppi']:
+        return 50, 121
+    elif dataset_name.lower() in ['citeseer']:
+        return 3703, 6
+    else:
+        raise ValueError(f"{dataset_name} is not defined.")    

@@ -1,6 +1,6 @@
 defaults:
   - models: gcn
-  - datasets: ENZYMES
+  - datasets: CiteSeer # BAHouse # PPI # CiteSeer # Reddit
   - override hydra/job_logging: disabled
   - _self_
   
