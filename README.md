@@ -7,11 +7,11 @@ conda env create -f environment.yml
 ```
 
 ## 2. Running experiments
-### For effectiveness
+### For effectiveness and efficiency
 ```
 python krcw.py
 ```
-### For efficiency
+### For scalability and parallel efficiency
 ```
 python prl_krcw.py
 ```
