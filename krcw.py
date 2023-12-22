@@ -203,54 +203,45 @@ def get_subgraph(splitG, graph):
 
     subset = splitG.test_mask.nonzero(as_tuple=True)[0]
 
-    print(f'subset.size(0):{subset.size(0)}')
-
     sub_edge_index, _ = tgu.subgraph(subset, graph.edge_index, num_nodes=graph.num_nodes, relabel_nodes=True)
-
-    new_sub = Data(x=graph.x[subset], edge_index=sub_edge_index)
+    if splitG.edge_label_index != None:
+        new_sub = Data(x=graph.x[subset], edge_index=splitG.edge_label_index)
+    else:
+        new_sub = Data(x=graph.x[subset], edge_index=sub_edge_index)
 
     return new_sub
 
 
-
 def SimilarityEvaluation(g1, g2):
 
-    print(f'g1:{g1}')
-    print(f'g2:{g2}')
+    def pyg_to_networkx(pyg_graph):
+        edges = pyg_graph.edge_index.t().tolist()
+        nx_graph = nx.Graph()
+        nx_graph.add_edges_from(edges)
+        return nx_graph
 
-    model = EvaGNN(g1.x.size(dim=1))
+    # Convert PyG graphs to NetworkX graphs
+    nx_graph1 = pyg_to_networkx(g1)
+    nx_graph2 = pyg_to_networkx(g2)
 
-    # Pass each graph through the model
-    embedding1 = model(g1)
-    embedding2 = model(g2)
+    # Calculate GED
+    ged = nx.graph_edit_distance(nx_graph1, nx_graph2)
 
-    # Aggregate node embeddings to get a single graph embedding
-    # Using mean as an example of aggregation
-    graph_embedding1 = torch.mean(embedding1, dim=0)
-    graph_embedding2 = torch.mean(embedding2, dim=0)
+    # Normalize GED
+    max_ged = nx_graph1.number_of_nodes() + nx_graph1.number_of_edges()
+    normalized_ged = ged / max_ged
 
-    # Calculate similarity - for example, using cosine similarity
-    cosine_similarity = F.cosine_similarity(graph_embedding1.unsqueeze(0), graph_embedding2.unsqueeze(0))
+    print("Normalized GED:", normalized_ged)
 
-    return cosine_similarity.item()
-
+    return normalized_ged
 
 def get_fidelity_graph(sub_nodes, graph):
 
-    sub_edge_index, _ = tgu.subgraph(sub_nodes, graph.edge_index, num_nodes=graph.num_nodes, relabel_nodes=False)
-    subg = Data(x=graph.x, edge_index=sub_edge_index)
+    _, test_index, _, _ = tgu.k_hop_subgraph(sub_nodes, 1, graph.edge_index, relabel_nodes=False, directed=False)
+    subg = Data(x=graph.x, edge_index=test_index)
 
     return subg
 
-
-# def test_get_fidelity_graph(mask, graph, sub_nodes):
-
-#     sub_edge_index, _ = tgu.subgraph(sub_nodes, graph.edge_index, num_nodes=graph.num_nodes, relabel_nodes=False)
-#     subg = Data(x=graph.x, edge_index=sub_edge_index)
-#     # with torch.no_grad():
-#     #     subg.x[mask] = torch.zeros_like(graph.x[0])
-
-#     return subg
 
 
 def get_fidelity_plus(mask, sub_nodes, graph):
@@ -262,95 +253,6 @@ def get_fidelity_plus(mask, sub_nodes, graph):
 
     return subg
 
-# def edge_index_to_set(edge_index):
-#     return set(tuple(edge) for edge in edge_index.t().tolist())
-
-# def set_to_edge_index(edges_set):
-#     edge_list = list(edges_set)
-#     return torch.tensor(edge_list).t().contiguous()
-
-# def get_fidelity_graph(remaining_nodes,test_nodes, graph):
-
-#     sub_edge_index, _ = tgu.subgraph(test_nodes, graph.edge_index, num_nodes=graph.num_nodes, relabel_nodes=False)
-
-#     # Convert to sets
-#     edge_index_set = edge_index_to_set(graph.edge_index)
-#     subset_edge_index_set = edge_index_to_set(sub_edge_index)
-
-#     # Remove the subset
-#     remaining_edges_set = edge_index_set - subset_edge_index_set
-
-#     # Convert back to tensor
-#     remaining_edge_index = set_to_edge_index(remaining_edges_set)
-
-#     return Data(x=graph.x, edge_index=remaining_edge_index), Data(x=graph.x, edge_index=sub_edge_index)
-
-
-def FidelityEvaluation(out, dataset, test_data, model, graph):
-
-    test_nodes = test_data.test_mask.nonzero(as_tuple=True)[0]
-
-    remaining_graph_mask = torch.ones(graph.num_nodes, dtype=torch.bool)
-    remaining_graph_mask[test_nodes] = False
-    remaining_nodes = remaining_graph_mask.nonzero(as_tuple=True)[0]
-
-    remaining_graph = get_fidelity_plus(test_data.test_mask, remaining_nodes, graph)
-    test_graph = get_fidelity_graph(test_nodes, graph)
-    # remaining_graph, test_graph = get_fidelity_graph(remaining_nodes, test_nodes, graph)
-    model.eval()
-    with torch.no_grad():
-        minus_out = model(test_graph.x, test_graph.edge_index)
-        # minus_out = model(test_graph.x, g.edge_label_index)
-        plus_out = model(remaining_graph.x, remaining_graph.edge_index)
-
-    minus_predict_lst = []
-    plus_predict_lst = []
-    # print(f'test_nodes:{test_nodes}')
-    for node in test_nodes:
-        # print(f'node:{node}')
-        node_pred = out[node]
-        minus_pred = minus_out[node]
-        plus_pred = plus_out[node]
-        # print(f'node_pred:{node_pred}')
-        # print(f'minus_pred:{minus_pred}')
-        # print(f'plus_pred:{plus_pred}')
-
-        original_predictions = node_pred.argmax(dim=-1)
-        minus_predictions = minus_pred.argmax(dim=-1)
-        plus_predictions = plus_pred.argmax(dim=-1)
-        ground_truth = graph.y[node]
-        # print(f'original_predictions:{original_predictions}')
-        # print(f'minus_predictions:{minus_predictions}')
-        # print(f'plus_predictions:{plus_predictions}')
-        # print(f'ground_truth:{ground_truth}')
-
-        origin_fide = (original_predictions == ground_truth)
-        minus_fide = (minus_predictions == ground_truth)
-        plus_fide = (plus_predictions == ground_truth)
-        # print(f'origin_fide:{origin_fide}')
-        # print(f'minus_fide:{minus_fide}')
-        # print(f'plus_fide:{plus_fide}')
-
-        if dataset == 'PPI':
-            original_predictions = tgu.one_hot(torch.tensor([original_predictions]), num_classes=121)
-            minus_predictions = tgu.one_hot(torch.tensor([minus_predictions]), num_classes=121)
-            plus_predictions = tgu.one_hot(torch.tensor([plus_predictions]), num_classes=121)
-
-            origin_fide = torch.tensor(True) if origin_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
-            minus_fide = torch.tensor(True) if minus_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
-            plus_fide = torch.tensor(True) if plus_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
-
-        minus_predict_lst.append(abs(origin_fide.item() - minus_fide.item()))
-        plus_predict_lst.append(abs(origin_fide.item() - plus_fide.item()))
-        # minus_predict_lst.append(origin_fide.item() - minus_fide.item())
-        # plus_predict_lst.append(origin_fide.item() - plus_fide.item())
-
-        # break
-
-    minus_result = np.mean(minus_predict_lst)
-    plus_result = np.mean(plus_predict_lst)
-
-    return plus_result, minus_result
 
 
 # def FidelityEvaluation(out, dataset, test_data, model, graph):
@@ -361,17 +263,20 @@ def FidelityEvaluation(out, dataset, test_data, model, graph):
 #     remaining_graph_mask[test_nodes] = False
 #     remaining_nodes = remaining_graph_mask.nonzero(as_tuple=True)[0]
 
-#     test_mask = torch.zeros(graph.num_nodes, dtype=torch.bool)
-#     test_mask[test_nodes] = True
-
-#     remaining_graph = get_fidelity_graph(test_mask, remaining_nodes, graph)
-#     test_graph = test_get_fidelity_graph(remaining_graph_mask, graph, test_nodes)
+#     remaining_graph = get_fidelity_plus(test_data.test_mask, remaining_nodes, graph)
+#     test_graph = get_fidelity_graph(test_nodes, graph)
 #     # remaining_graph, test_graph = get_fidelity_graph(remaining_nodes, test_nodes, graph)
 #     model.eval()
 #     with torch.no_grad():
-#         minus_out = model(test_graph.x, test_graph.edge_index)
-#         # minus_out = model(test_graph.x, g.edge_label_index)
+#         # minus_out = model(test_graph.x, test_graph.edge_index)
+#         # # minus_out = model(test_graph.x, g.edge_label_index)
 #         plus_out = model(remaining_graph.x, remaining_graph.edge_index)
+
+#     model.eval()
+#     with torch.no_grad():
+#         minus_out = model(test_graph.x, test_graph.edge_index)
+#         # # minus_out = model(test_graph.x, g.edge_label_index)
+#         # plus_out = model(remaining_graph.x, remaining_graph.edge_index)
 
 #     minus_predict_lst = []
 #     plus_predict_lst = []
@@ -422,6 +327,108 @@ def FidelityEvaluation(out, dataset, test_data, model, graph):
 
 #     return plus_result, minus_result
 
+def SimilarityEvaluation(g1, g2):
+    normalized_ged = (g1.num_edges - g2.num_edges)/(g1.num_nodes + g1.num_edges)
+    return normalized_ged
+
+def FidelityEvaluationPlus(out, dataset, test_data, model, graph):
+
+    test_nodes = test_data.test_mask.nonzero(as_tuple=True)[0]
+
+    remaining_graph_mask = torch.ones(graph.num_nodes, dtype=torch.bool)
+    remaining_graph_mask[test_nodes] = False
+    remaining_nodes = remaining_graph_mask.nonzero(as_tuple=True)[0]
+
+    remaining_graph = get_fidelity_plus(test_data.test_mask, remaining_nodes, graph)
+    model.eval()
+    with torch.no_grad():
+        plus_out = model(remaining_graph.x, remaining_graph.edge_index)
+
+    plus_predict_lst = []
+    for node in test_nodes:
+        # print(f'node:{node}')
+        node_pred = out[node]
+        plus_pred = plus_out[node]
+
+        original_predictions = node_pred.argmax(dim=-1)
+        plus_predictions = plus_pred.argmax(dim=-1)
+        ground_truth = graph.y[node]
+
+        origin_fide = (original_predictions == ground_truth)
+        plus_fide = (plus_predictions == ground_truth)
+
+        if dataset == 'PPI':
+            original_predictions = tgu.one_hot(torch.tensor([original_predictions]), num_classes=121)
+            plus_predictions = tgu.one_hot(torch.tensor([plus_predictions]), num_classes=121)
+
+            origin_fide = torch.tensor(True) if origin_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
+            plus_fide = torch.tensor(True) if plus_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
+
+        plus_predict_lst.append(abs(origin_fide.item() - plus_fide.item()))
+
+        # break
+
+    plus_result = np.mean(plus_predict_lst)
+
+    return plus_result
+
+def FidelityEvaluationMinus(out, dataset, test_data, model, graph):
+
+    test_nodes = test_data.test_mask.nonzero(as_tuple=True)[0]
+    test_graph = get_fidelity_graph(test_nodes, graph)
+
+    minus_out = model(test_graph.x, test_graph.edge_index)
+    out = model(graph.x, graph.edge_index)
+
+    minus_predict_lst = []
+    for node in test_nodes:
+
+        node_pred = out[node]
+        minus_pred = minus_out[node]
+
+        original_predictions = node_pred.argmax(dim=-1)
+        minus_predictions = minus_pred.argmax(dim=-1)
+        ground_truth = graph.y[node]
+
+        origin_fide = (original_predictions == ground_truth)
+        minus_fide = (minus_predictions == ground_truth)
+
+        if dataset == 'PPI':
+            original_predictions = tgu.one_hot(torch.tensor([original_predictions]), num_classes=121)
+            minus_predictions = tgu.one_hot(torch.tensor([minus_predictions]), num_classes=121)
+
+            origin_fide = torch.tensor(True) if origin_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
+            minus_fide = torch.tensor(True) if minus_fide.nonzero(as_tuple=True)[0].size(0)/121 > 0.5 else torch.tensor(False)
+
+        minus_predict_lst.append(abs(origin_fide.item() - minus_fide.item()))
+
+        # break
+
+    minus_result = np.mean(minus_predict_lst)
+
+    return minus_result
+
+# def FidelityEvaluationMinus(out, dataset, test_data, model, graph):
+
+#     test_nodes = test_data.test_mask.nonzero(as_tuple=True)[0]
+#     test_graph = get_fidelity_graph(test_nodes, graph)
+
+#     minus_out = model(test_graph.x, test_graph.edge_index)
+#     out = model(graph.x, graph.edge_index)
+
+#     minus_predict_lst = []
+#     for node in test_nodes:
+    
+#         node_pred = out[node]
+
+#         minus_pred = minus_out[node]
+#         minus_predict_lst.append(abs((node_pred.argmax(dim=-1) == graph.y[node]).item() - (minus_pred.argmax(dim=-1) == graph.y[node]).item()))
+
+#     minus_result = np.mean(minus_predict_lst)
+
+#     return minus_result
+
+
 
 @hydra.main(version_base=None, config_path='config', config_name='config')
 def main(config):
@@ -431,6 +438,7 @@ def main(config):
     random.seed(seed)
     vt = 20
     b = 10
+    k = 20
     ## dataset
 
     config.models.params = config.models.params[config.datasets.dataset_name]
@@ -464,17 +472,26 @@ def main(config):
     model.eval()
     model.to(device)
 
+    model1 = GCN(input_dim, output_dim)
+    model1.load_state_dict(torch.load(os.path.join(config.models.gnn_savedir,
+                                         config.datasets.dataset_name,
+                                         f'{config.models.gnn_name}_'
+                                         f'{len(config.models.params.gnn_latent_dim)}l_best.pth')))
+    model1.eval()
+    model1.to(device)
+
     ## krcw
 
     out = model(bigG.x, bigG.edge_index)
+    out1 = model1(bigG.x, bigG.edge_index)
     logits = out.detach().numpy()
     alpha = 0.85
 
-    k = 0
+    cnt = 0
     robust_ratio = 0
     t = time.perf_counter()
     # while robust_ratio<0.97 and cnt<10:
-    while k<20:
+    while cnt<k:
 
         adj_matrix = tgu.add_remaining_self_loops(bigG.edge_index, num_nodes=bigG.num_nodes)[0]
         coo_adj_matrix = tgu.to_scipy_sparse_matrix(adj_matrix)
@@ -484,18 +501,17 @@ def main(config):
         weighted_logits = ppr_clean @ logits
         predicted = weighted_logits.argmax(1)
 
-        robust_ratio = Validator(csr_adj_matrix, 
+        Validator(csr_adj_matrix, 
                 logits, 
                 test_data.test_mask.nonzero(as_tuple=True)[0].tolist(), 
                 predicted)
-        robust_ratio = 1.0
 
-        top_sensitive_edges = SensiEdge(test_data, model, k)
+        top_sensitive_edges = SensiEdge(test_data, model, b)
 
         test_data = AddEdge(test_data, top_sensitive_edges)
         
-        print(f'finish epoch: {k} | current robust: {robust_ratio}')
-        k += 1
+        print(f'finish epoch: {cnt}')
+        cnt += 1
     cost_time = time.perf_counter() - t
     print(f'time cost:{cost_time:.4f}s')
     print('find the k-rcw')
@@ -503,10 +519,11 @@ def main(config):
     g1 = get_subgraph(test_data, bigG)
     g2 = get_subgraph(original_test_data, bigG)
 
-    kernel_value = SimilarityEvaluation(g1, g2)
-    f_plus, f_minus = FidelityEvaluation(out, config.datasets.dataset_name, test_data, model, bigG)
+    NormGED = SimilarityEvaluation(g1, g2)
+    f_plus = FidelityEvaluationPlus(out, config.datasets.dataset_name, test_data, model, bigG)
+    f_minus = FidelityEvaluationMinus(out1, config.datasets.dataset_name, test_data, model1, bigG)
 
-    print(f'kernel_value: {kernel_value}')
+    print(f'GED: {NormGED}')
     print(f'fidelity+: {f_plus}')
     print(f'fidelity-: {f_minus}')
 
